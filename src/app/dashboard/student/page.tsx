@@ -2,9 +2,9 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { API_BASE_URL, API_ENDPOINTS } from "@/lib/api-config";
 
-const API_BASE_URL = "http://localhost:3003";
-const BOOKING_ENDPOINT = `${API_BASE_URL}/booking`;
+const BOOKING_ENDPOINT = API_ENDPOINTS.BOOKING.BASE;
 
 type MealType = "BREAKFAST" | "LUNCH" | "DINNER";
 
@@ -246,7 +246,7 @@ export default function StudentDashboard() {
 
   async function fetchUser(userId: string) {
     if (!token) return null;
-    const res = await fetch(`${API_BASE_URL}/user/${userId}`, {
+    const res = await fetch(API_ENDPOINTS.USER.BY_ID(userId), {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -276,7 +276,7 @@ export default function StudentDashboard() {
     // Attempt to fetch student profile to grab studentId
     try {
       const studentRes = await fetch(
-        `${API_BASE_URL}/student?userId=${encodeURIComponent(resolvedUser.id)}`,
+        `${API_ENDPOINTS.STUDENT.BASE}?userId=${encodeURIComponent(resolvedUser.id)}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -484,7 +484,7 @@ export default function StudentDashboard() {
       const bookingId = bookingData.booking?.id;
       if (!bookingId) throw new Error("Booking id missing");
 
-      const payRes = await fetch(`${BOOKING_ENDPOINT}/${bookingId}/pay`, {
+      const payRes = await fetch(API_ENDPOINTS.BOOKING.PAY(bookingId), {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -656,7 +656,7 @@ export default function StudentDashboard() {
       // Convert amount to USD before sending to backend (balance is stored in USD)
       const amountInUSD = convertToUSD(amountNumber, currency);
 
-      const res = await fetch(`${API_BASE_URL}/student/topup`, {
+      const res = await fetch(API_ENDPOINTS.STUDENT.TOPUP, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

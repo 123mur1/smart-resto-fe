@@ -19,8 +19,8 @@ import {
   Pie,
   Cell,
 } from "recharts";
+import { API_BASE_URL, API_ENDPOINTS } from "@/lib/api-config";
 
-const API_BASE_URL = "http://localhost:3003";
 const EXCHANGE_RATE = 1300; // 1 USD = 1300 RWF
 
 // Helper function to convert USD to RWF and round to whole number
@@ -200,7 +200,7 @@ export default function AdminDashboard() {
 
     try {
       // Fetch users - use max limit of 100 and fetch multiple pages if needed
-      const usersRes = await fetch(`${API_BASE_URL}/user?page=1&limit=100`, {
+      const usersRes = await fetch(`${API_ENDPOINTS.USER.BASE}?page=1&limit=100`, {
         headers: { 
           "Content-Type": "application/json",
         },
@@ -229,7 +229,7 @@ export default function AdminDashboard() {
       }
 
       // Fetch meals - use max limit of 100
-      const mealsRes = await fetch(`${API_BASE_URL}/meal?page=1&limit=100`, {
+      const mealsRes = await fetch(`${API_ENDPOINTS.MEAL.BASE}?page=1&limit=100`, {
         headers: {
           "Content-Type": "application/json",
         },
@@ -263,7 +263,7 @@ export default function AdminDashboard() {
         walletLiability: 0,
       };
       try {
-        const financeRes = await fetch(`${API_BASE_URL}/metrics/finance`, {
+        const financeRes = await fetch(API_ENDPOINTS.METRICS.FINANCE, {
           headers: {
             "Content-Type": "application/json",
           },
@@ -324,7 +324,7 @@ export default function AdminDashboard() {
     if (!token) return;
     try {
       const res = await fetch(
-        `${API_BASE_URL}/user?page=${page}&limit=10&sort=created_at&order=desc`,
+        `${API_ENDPOINTS.USER.BASE}?page=${page}&limit=10&sort=created_at&order=desc`,
         {
           headers: { 
             "Content-Type": "application/json",
@@ -366,7 +366,7 @@ export default function AdminDashboard() {
   async function fetchMeals(page: number) {
     try {
       const res = await fetch(
-        `${API_BASE_URL}/meal?page=${page}&limit=10&sort=created_at&order=desc`,
+        `${API_ENDPOINTS.MEAL.BASE}?page=${page}&limit=10&sort=created_at&order=desc`,
         {
           headers: {
             "Content-Type": "application/json",
@@ -408,7 +408,7 @@ export default function AdminDashboard() {
   async function fetchPayments(page: number = 1, startDate?: string, endDate?: string) {
     if (!token) return;
     try {
-      let url = `${API_BASE_URL}/payment?page=${page}&limit=20&sort=payment_date&order=desc`;
+      let url = `${API_ENDPOINTS.PAYMENT.BASE}?page=${page}&limit=20&sort=payment_date&order=desc`;
       if (startDate) url += `&startDate=${startDate}`;
       if (endDate) url += `&endDate=${endDate}`;
 
@@ -449,7 +449,7 @@ export default function AdminDashboard() {
   async function fetchTransactions(page: number = 1, startDate?: string, endDate?: string) {
     if (!token) return;
     try {
-      let url = `${API_BASE_URL}/transaction?page=${page}&limit=20&sort=transaction_date&order=desc`;
+      let url = `${API_ENDPOINTS.TRANSACTION.BASE}?page=${page}&limit=20&sort=transaction_date&order=desc`;
       if (startDate) url += `&startDate=${startDate}`;
       if (endDate) url += `&endDate=${endDate}`;
 
@@ -479,7 +479,7 @@ export default function AdminDashboard() {
       return;
 
     try {
-      const res = await fetch(`${API_BASE_URL}/user/${userId}`, {
+      const res = await fetch(API_ENDPOINTS.USER.BY_ID(userId), {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -499,7 +499,7 @@ export default function AdminDashboard() {
       return;
 
     try {
-      const res = await fetch(`${API_BASE_URL}/meal/${mealId}`, {
+      const res = await fetch(API_ENDPOINTS.MEAL.BY_ID(mealId), {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -1152,7 +1152,7 @@ function ReportsTab({
 
     while (hasMore) {
       try {
-        let url = `${API_BASE_URL}/payment?page=${page}&limit=100&sort=payment_date&order=desc`;
+        let url = `${API_ENDPOINTS.PAYMENT.BASE}?page=${page}&limit=100&sort=payment_date&order=desc`;
         if (startDate) url += `&startDate=${startDate}`;
         if (endDate) url += `&endDate=${endDate}`;
 
@@ -1190,7 +1190,7 @@ function ReportsTab({
 
     while (hasMore) {
       try {
-        let url = `${API_BASE_URL}/transaction?page=${page}&limit=100&sort=transaction_date&order=desc`;
+        let url = `${API_ENDPOINTS.TRANSACTION.BASE}?page=${page}&limit=100&sort=transaction_date&order=desc`;
         if (startDate) url += `&startDate=${startDate}`;
         if (endDate) url += `&endDate=${endDate}`;
 

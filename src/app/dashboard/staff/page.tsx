@@ -3,14 +3,14 @@
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { API_ENDPOINTS } from "@/lib/api-config";
 
 const QRScanner = dynamic(() => import("../../components/QRScanner"), {
   ssr: false,
 });
 
-const API_BASE_URL = "http://localhost:3003";
-const VERIFY_ENDPOINT = `${API_BASE_URL}/booking/verify`;
-const HISTORY_ENDPOINT = `${API_BASE_URL}/booking`;
+const VERIFY_ENDPOINT = API_ENDPOINTS.BOOKING.VERIFY;
+const HISTORY_ENDPOINT = API_ENDPOINTS.BOOKING.BASE;
 
 type ScanStatus = "approved" | "rejected" | "pending";
 

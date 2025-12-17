@@ -3,8 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-
-const API_BASE_URL = "http://localhost:3003";
+import { API_ENDPOINTS } from "@/lib/api-config";
 
 export default function SignIn() {
   const router = useRouter();
@@ -22,7 +21,7 @@ export default function SignIn() {
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_BASE_URL}/auth/login`, {
+      const res = await fetch(API_ENDPOINTS.AUTH.LOGIN, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),

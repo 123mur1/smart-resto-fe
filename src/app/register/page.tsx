@@ -3,8 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-
-const API_BASE_URL = "http://localhost:3003";
+import { API_ENDPOINTS } from "@/lib/api-config";
 
 export default function Register() {
   const router = useRouter();
@@ -60,7 +59,7 @@ export default function Register() {
 
     try {
       // Step 1: Register user and trigger OTP
-      const res = await fetch(`${API_BASE_URL}/auth/register`, {
+      const res = await fetch(API_ENDPOINTS.AUTH.REGISTER, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -96,7 +95,7 @@ export default function Register() {
     setWarning("");
 
     try {
-      const res = await fetch(`${API_BASE_URL}/auth/verify-email`, {
+      const res = await fetch(API_ENDPOINTS.AUTH.VERIFY_EMAIL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
