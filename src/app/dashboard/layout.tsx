@@ -2,15 +2,45 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const [userRole, setUserRole] = useState<string | null>(null);
 
-  const menuItems = [
-    { name: "Student", path: "/dashboard/student" },
-    { name: "Staff", path: "/dashboard/staff" },
-    { name: "Admin", path: "/dashboard/admin" },
-  ];
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const storedUser = localStorage.getItem("user");
+      if (storedUser) {
+        try {
+          const parsedUser = JSON.parse(storedUser);
+          setUserRole(parsedUser.role?.toLowerCase() || null);
+        } catch (e) {
+          console.error("Error parsing user data:", e);
+        }
+      }
+    }
+  }, []);
+
+  // Determine which dashboard link to show based on user role
+  const getMenuItems = () => {
+    if (!userRole) return [];
+
+    const role = userRole.toLowerCase();
+    
+    if (role === "admin" || role === "superadmin") {
+      return [{ name: "Admin Dashboard", path: "/dashboard/admin" }];
+    }
+    
+    if (role === "staff") {
+      return [{ name: "Staff Dashboard", path: "/dashboard/staff" }];
+    }
+    
+    // For students (student, students, or default)
+    return [{ name: "Student Dashboard", path: "/dashboard/student" }];
+  };
+
+  const menuItems = getMenuItems();
 
   return (
     <div className="min-h-screen flex bg-gray-100">

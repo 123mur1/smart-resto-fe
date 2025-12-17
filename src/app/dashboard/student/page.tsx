@@ -65,12 +65,14 @@ export default function StudentDashboard() {
   );
   const [refreshing, setRefreshing] = useState(false);
   const [bookingLoading, setBookingLoading] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState("CASH");
+  const [paymentMethod, setPaymentMethod] = useState("MOBILE_MONEY");
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentError, setPaymentError] = useState("");
   const [selectedMeal, setSelectedMeal] = useState<MealType | null>(null);
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [mobileMoneyNumber, setMobileMoneyNumber] = useState("");
+  const [cardNumber, setCardNumber] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
   const [studentProfile, setStudentProfile] = useState<StudentProfile | null>(
     null
   );
@@ -110,21 +112,86 @@ export default function StudentDashboard() {
   const [topUpAmount, setTopUpAmount] = useState("");
   const [topUpMethod, setTopUpMethod] = useState("MOBILE_MONEY");
   const [topUpMobileNumber, setTopUpMobileNumber] = useState("");
+  const [topUpCardNumber, setTopUpCardNumber] = useState("");
+  const [topUpAccountNumber, setTopUpAccountNumber] = useState("");
   const [topUpReference, setTopUpReference] = useState("");
   const [topUpNote, setTopUpNote] = useState("");
   const [topUpError, setTopUpError] = useState("");
   const [topUpLoading, setTopUpLoading] = useState(false);
+  const [currency, setCurrency] = useState<"RWF" | "USD">(() => {
+    if (typeof window !== "undefined") {
+      return (localStorage.getItem("currency") as "RWF" | "USD") || "RWF";
+    }
+    return "RWF";
+  });
 
+  // Currency conversion rates (RWF to USD)
+  // Balance is stored in USD in the database
+  const exchangeRate = 1300; // 1 USD = 1300 RWF (approximate)
+  
+  // Exact RWF prices - these are the actual prices users pay
+  const exactRwfPrices = {
+    BREAKFAST: 500,  // Exactly 500 RWF
+    LUNCH: 1000,     // Exactly 1000 RWF
+    DINNER: 1000,    // Exactly 1000 RWF
+  };
+  
+  // Calculate USD prices from exact RWF amounts to avoid rounding errors
   const mealPrices = useMemo<
     Record<MealType, { label: string; price: number }>
   >(
-    () => ({
-      BREAKFAST: { label: "Breakfast", price: 5 },
-      LUNCH: { label: "Lunch", price: 8 },
-      DINNER: { label: "Dinner", price: 10 },
-    }),
-    []
+    () => {
+      if (currency === "RWF") {
+        return {
+          BREAKFAST: { label: "Breakfast", price: exactRwfPrices.BREAKFAST },
+          LUNCH: { label: "Lunch", price: exactRwfPrices.LUNCH },
+          DINNER: { label: "Dinner", price: exactRwfPrices.DINNER },
+        };
+      }
+      
+      // Convert exact RWF prices to USD
+      return {
+        BREAKFAST: { label: "Breakfast", price: exactRwfPrices.BREAKFAST / exchangeRate },
+        LUNCH: { label: "Lunch", price: exactRwfPrices.LUNCH / exchangeRate },
+        DINNER: { label: "Dinner", price: exactRwfPrices.DINNER / exchangeRate },
+      };
+    },
+    [currency]
   );
+
+  // Convert amount from USD (stored) to display currency
+  const convertToDisplayCurrency = (amountInUSD: number): number => {
+    if (currency === "RWF") {
+      return amountInUSD * exchangeRate;
+    }
+    return amountInUSD;
+  };
+
+  // Convert amount from display currency to USD (for storage)
+  // Use proper rounding to avoid floating point errors
+  // For exact amounts like 500 RWF, we need to preserve precision
+  const convertToUSD = (amount: number, fromCurrency: "RWF" | "USD"): number => {
+    if (fromCurrency === "RWF") {
+      // Use higher precision (6 decimals) for calculation, then round to 4 for storage
+      // This ensures 500 RWF = 0.384615... USD exactly
+      const usdAmount = amount / exchangeRate;
+      // Round to 6 decimal places for precision, then to 4 for database
+      return Math.round(usdAmount * 1000000) / 1000000;
+    }
+    return amount;
+  };
+
+  // Format currency display (amount should be in USD, will be converted for display)
+  const formatCurrency = (amountInUSD: number): string => {
+    const displayAmount = convertToDisplayCurrency(amountInUSD);
+    if (currency === "RWF") {
+      return `${Math.round(displayAmount).toLocaleString()} RWF`;
+    }
+    return `$${displayAmount.toFixed(2)}`;
+  };
+
+  // Format currency symbol only
+  const currencySymbol = currency === "RWF" ? "RWF" : "$";
 
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
@@ -138,6 +205,22 @@ export default function StudentDashboard() {
     const parsedUser: User | null = storedUser ? JSON.parse(storedUser) : null;
 
     if (!parsedUser) {
+      router.replace("/login");
+      return;
+    }
+
+    // Role-based access control: Only students can access student dashboard
+    const role = parsedUser.role?.toLowerCase();
+    if (role === "admin" || role === "superadmin") {
+      router.replace("/dashboard/admin");
+      return;
+    }
+    if (role === "staff") {
+      router.replace("/dashboard/staff");
+      return;
+    }
+    // Allow access for students (role === "student" or "students" or undefined/default)
+    if (role && role !== "student" && role !== "students") {
       router.replace("/login");
       return;
     }
@@ -267,7 +350,7 @@ export default function StudentDashboard() {
 
   function openPaymentForm(mealType: MealType) {
     setSelectedMeal(mealType);
-    setPaymentMethod("CASH");
+    setPaymentMethod("MOBILE_MONEY");
     setPaymentAmount(mealPrices[mealType].price.toString());
     setPaymentError("");
     setShowPaymentForm(true);
@@ -280,6 +363,8 @@ export default function StudentDashboard() {
     setPaymentError("");
     setPaymentAmount("");
     setMobileMoneyNumber("");
+    setCardNumber("");
+    setAccountNumber("");
   }
 
   function openTopUpForm() {
@@ -287,6 +372,8 @@ export default function StudentDashboard() {
     setTopUpAmount("");
     setTopUpMethod("MOBILE_MONEY");
     setTopUpMobileNumber("");
+    setTopUpCardNumber("");
+    setTopUpAccountNumber("");
     setTopUpReference("");
     setTopUpNote("");
     setTopUpError("");
@@ -305,9 +392,9 @@ export default function StudentDashboard() {
     const mealLabel =
       mealPrices[booking.meal_type as MealType]?.label || booking.meal_type;
     const date = new Date(booking.created_at).toLocaleString();
-    const balance = `$${numericBalance.toFixed(2)}`;
+    const balance = formatCurrency(numericBalance);
     const price = booking.price
-      ? `$${Number(booking.price).toFixed(2)}`
+      ? formatCurrency(Number(booking.price))
       : "N/A";
 
     const receiptLines = [
@@ -342,6 +429,8 @@ export default function StudentDashboard() {
       method: string;
       amount: number;
       mobileMoneyNumber?: string;
+      cardNumber?: string;
+      accountNumber?: string;
     }
   ) {
     const resolvedStudentId =
@@ -351,8 +440,19 @@ export default function StudentDashboard() {
       return;
     }
 
-    const mealPrice = mealPrices[mealType].price;
-    if (numericBalance < mealPrice) {
+    // Compare in USD (balance is stored in USD)
+    // Use exact conversion with proper rounding
+    const mealPriceInUSD = currency === "RWF" 
+      ? convertToUSD(mealPrices[mealType].price, "RWF")
+      : mealPrices[mealType].price;
+    
+    // Round to 2 decimal places to match database Decimal(10,2) precision
+    // Use proper rounding to avoid floating point errors
+    // For 1000 RWF: 1000/1300 = 0.769230... → round to 0.77 USD
+    // When converted back: 0.77 * 1300 = 1001, so we'll round RWF display to whole numbers
+    const exactPriceInUSD = Math.round(mealPriceInUSD * 100) / 100;
+    
+    if (numericBalance < exactPriceInUSD) {
       setToast({
         type: "error",
         message: "Insufficient balance. Please top up before booking.",
@@ -372,7 +472,8 @@ export default function StudentDashboard() {
         body: JSON.stringify({
           studentId: resolvedStudentId,
           mealType,
-          price: mealPrices[mealType].price,
+          price: exactPriceInUSD, // Send exact rounded price in USD to backend (500 RWF = 0.3846 USD)
+          paymentMethod: paymentDetails.method, // Send payment method to avoid defaulting to CASH
         }),
       });
 
@@ -415,7 +516,7 @@ export default function StudentDashboard() {
         remainingBalance:
           typeof payData?.remainingBalance === "number"
             ? payData.remainingBalance
-            : Math.max(numericBalance - mealPrices[mealType].price, 0),
+            : Math.max(numericBalance - mealPriceInUSD, 0),
         timestamp: new Date().toISOString(),
       });
       await Promise.all([fetchBookings(), fetchUser(user.id)]);
@@ -439,25 +540,55 @@ export default function StudentDashboard() {
       setPaymentError("Please enter a valid payment amount.");
       return;
     }
-    if (amountNumber < mealPrices[selectedMeal].price) {
+    // Convert meal price to display currency for comparison
+    const mealPriceInDisplayCurrency = mealPrices[selectedMeal].price;
+    const mealPriceInUSD = currency === "RWF" 
+      ? convertToUSD(mealPriceInDisplayCurrency, "RWF")
+      : mealPriceInDisplayCurrency;
+    
+    // Convert entered amount to USD for comparison
+    const enteredAmountInUSD = convertToUSD(amountNumber, currency);
+    
+    if (enteredAmountInUSD < mealPriceInUSD) {
+      const minAmountDisplay = currency === "RWF"
+        ? `${Math.round(mealPriceInDisplayCurrency).toLocaleString()} RWF`
+        : `$${mealPriceInDisplayCurrency.toFixed(2)}`;
       setPaymentError(
-        `Amount must be at least $${mealPrices[selectedMeal].price.toFixed(2)}.`
+        `Amount must be at least ${minAmountDisplay}.`
       );
       return;
     }
-    if (
-      paymentMethod === "MOBILE_MONEY" &&
-      (!mobileMoneyNumber.trim() || mobileMoneyNumber.trim().length < 6)
-    ) {
-      setPaymentError("Enter a valid mobile money number (at least 6 digits).");
-      return;
+    if (paymentMethod === "MOBILE_MONEY") {
+      if (!mobileMoneyNumber.trim() || mobileMoneyNumber.trim().length < 6) {
+        setPaymentError("Enter a valid mobile money number (at least 6 digits).");
+        return;
+      }
+    }
+    if (paymentMethod === "CARD") {
+      if (!cardNumber.trim() || cardNumber.replace(/\s/g, "").length < 13) {
+        setPaymentError("Enter a valid card number (minimum 13 digits).");
+        return;
+      }
+    }
+    if (paymentMethod === "BANK_TRANSIFER") {
+      if (!accountNumber.trim() || accountNumber.trim().length < 5) {
+        setPaymentError("Enter a valid account number (minimum 5 characters).");
+        return;
+      }
     }
     setPaymentError("");
+    // Convert payment amount to USD before processing
+    const paymentAmountInUSD = convertToUSD(amountNumber, currency);
+    
     await handleBookMeal(selectedMeal, {
       method: paymentMethod,
-      amount: amountNumber,
+      amount: paymentAmountInUSD, // Send in USD
       mobileMoneyNumber:
         paymentMethod === "MOBILE_MONEY" ? mobileMoneyNumber.trim() : undefined,
+      cardNumber:
+        paymentMethod === "CARD" ? cardNumber.trim().replace(/\s/g, "") : undefined,
+      accountNumber:
+        paymentMethod === "BANK_TRANSIFER" ? accountNumber.trim() : undefined,
     });
   }
 
@@ -471,16 +602,40 @@ export default function StudentDashboard() {
       return;
     }
     const amountNumber = Number(topUpAmount);
-    if (!topUpAmount || Number.isNaN(amountNumber) || amountNumber <= 0) {
+    if (!topUpAmount || Number.isNaN(amountNumber)) {
       setTopUpError("Enter a valid top-up amount.");
       return;
     }
-    if (
-      topUpMethod === "MOBILE_MONEY" &&
-      (!topUpMobileNumber.trim() || topUpMobileNumber.trim().length < 6)
-    ) {
-      setTopUpError("Enter a valid mobile money number.");
-      return;
+    // For RWF, minimum is 1 (whole numbers only)
+    if (currency === "RWF") {
+      if (amountNumber < 1 || amountNumber % 1 !== 0) {
+        setTopUpError("RWF amounts must be whole numbers (minimum 1 RWF).");
+        return;
+      }
+    } else {
+      // For USD, minimum is 0.01
+      if (amountNumber < 0.01) {
+        setTopUpError("Minimum amount is $0.01.");
+        return;
+      }
+    }
+    if (topUpMethod === "MOBILE_MONEY") {
+      if (!topUpMobileNumber.trim() || topUpMobileNumber.trim().length < 6) {
+        setTopUpError("Enter a valid mobile money number.");
+        return;
+      }
+    }
+    if (topUpMethod === "CARD") {
+      if (!topUpCardNumber.trim() || topUpCardNumber.trim().length < 13) {
+        setTopUpError("Enter a valid card number (minimum 13 digits).");
+        return;
+      }
+    }
+    if (topUpMethod === "BANK_TRANSIFER") {
+      if (!topUpAccountNumber.trim() || topUpAccountNumber.trim().length < 5) {
+        setTopUpError("Enter a valid account number (minimum 5 characters).");
+        return;
+      }
     }
     setTopUpError("");
     setTopUpLoading(true);
@@ -490,7 +645,16 @@ export default function StudentDashboard() {
         topUpMethod === "MOBILE_MONEY" && topUpMobileNumber
           ? `Mobile money ${topUpMobileNumber.trim()}`
           : null,
+        topUpMethod === "CARD" && topUpCardNumber
+          ? `Card ending ${topUpCardNumber.trim().replace(/\s/g, "").slice(-4)}`
+          : null,
+        topUpMethod === "BANK_TRANSIFER" && topUpAccountNumber
+          ? `Account ${topUpAccountNumber.trim()}`
+          : null,
       ].filter(Boolean);
+
+      // Convert amount to USD before sending to backend (balance is stored in USD)
+      const amountInUSD = convertToUSD(amountNumber, currency);
 
       const res = await fetch(`${API_BASE_URL}/student/topup`, {
         method: "POST",
@@ -500,7 +664,7 @@ export default function StudentDashboard() {
         },
         body: JSON.stringify({
           studentId: resolvedStudentId,
-          amount: amountNumber,
+          amount: amountInUSD, // Send in USD
           paymentMethod: topUpMethod,
           providerReference: topUpReference || undefined,
           note: noteParts.length > 0 ? noteParts.join(" | ") : undefined,
@@ -513,10 +677,14 @@ export default function StudentDashboard() {
       }
       setToast({
         type: "success",
-        message: "Balance added successfully.",
+        message: `Successfully deposited ${formatCurrency(amountInUSD)}. New balance: ${formatCurrency(data.balance || (numericBalance + amountInUSD))}`,
       });
+      // Refresh data
       await Promise.all([fetchUser(user.id), fetchBookings()]);
-      closeTopUpForm();
+      // Show success for a moment before closing
+      setTimeout(() => {
+        closeTopUpForm();
+      }, 1500);
     } catch (err: any) {
       setTopUpError(err.message || "Unable to process top-up.");
     } finally {
@@ -594,20 +762,45 @@ export default function StudentDashboard() {
                 <p className="text-xl font-semibold">{user.fullName}</p>
                 <p className="text-xs text-white/60 mt-1">{user.email}</p>
               </div>
-              <div className="bg-white/10 rounded-xl p-4 border border-white/10">
-                <p className="text-white/70 text-sm">Meal Balance</p>
-                <p className="text-3xl font-bold text-amber-300">
-                  ${numericBalance.toFixed(2)}
-                </p>
-                <p className="text-xs text-white/60 mt-1">
-                  Top up before booking your meals
-                </p>
-                <button
-                  onClick={openTopUpForm}
-                  className="mt-3 w-full rounded-lg border border-amber-300 text-amber-200 py-1 text-sm hover:bg-amber-300/10 transition"
-                >
-                  + Add balance
-                </button>
+              <div className="bg-linear-to-br from-amber-500/20 via-amber-400/10 to-amber-500/20 rounded-xl p-5 border-2 border-amber-400/30 shadow-lg shadow-amber-500/10">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="text-white/70 text-sm font-medium">Meal Balance</p>
+                      <select
+                        value={currency}
+                      onChange={(e) => {
+                        const newCurrency = e.target.value as "RWF" | "USD";
+                        setCurrency(newCurrency);
+                        localStorage.setItem("currency", newCurrency);
+                      }}
+                      className="text-xs bg-white/10 border border-white/20 rounded px-2 py-0.5 text-white/80 focus:outline-none"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <option value="RWF">RWF</option>
+                      <option value="USD">USD</option>
+                    </select>
+                    </div>
+                    <p className="text-3xl font-bold text-amber-300 mt-1">
+                      {formatCurrency(numericBalance)}
+                    </p>
+                  </div>
+                  <div className="text-4xl">💰</div>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-xs text-white/60">
+                    {numericBalance < 5 // Balance is in USD, compare with $5 USD
+                      ? "⚠️ Low balance - Top up now to book meals"
+                      : "✅ Ready to book meals"}
+                  </p>
+                  <button
+                    onClick={openTopUpForm}
+                    className="w-full rounded-lg bg-linear-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-black font-bold py-2.5 text-sm transition shadow-md shadow-amber-500/20 flex items-center justify-center gap-2"
+                  >
+                    <span>+</span>
+                    <span>Deposit Funds</span>
+                  </button>
+                </div>
               </div>
               <div className="bg-white/10 rounded-xl p-4 border border-white/10">
                 <p className="text-white/70 text-sm">Recent Activity</p>
@@ -650,9 +843,11 @@ export default function StudentDashboard() {
                           : "Evening meal to unwind"}
                       </p>
                     </div>
-                    <p className="text-2xl font-bold text-amber-300">
-                      ${mealPrices[mealType].price.toFixed(2)}
-                    </p>
+                      <p className="text-2xl font-bold text-amber-300">
+                        {currency === "RWF" 
+                          ? `${Math.round(mealPrices[mealType].price).toLocaleString()} RWF`
+                          : `$${mealPrices[mealType].price.toFixed(2)}`}
+                      </p>
                     <button
                       onClick={() => openPaymentForm(mealType)}
                       disabled={
@@ -716,8 +911,8 @@ export default function StudentDashboard() {
                       </p>
                       <p className="font-medium">
                         {typeof latestReceipt.remainingBalance === "number"
-                          ? `$${latestReceipt.remainingBalance.toFixed(2)}`
-                          : `$${numericBalance.toFixed(2)}`}
+                          ? formatCurrency(latestReceipt.remainingBalance)
+                          : formatCurrency(numericBalance)}
                       </p>
                     </div>
                     <div>
@@ -765,7 +960,7 @@ export default function StudentDashboard() {
                               booking.meal_type}
                           </td>
                           <td className="px-4 py-3 text-amber-200">
-                            ${booking.price ? Number(booking.price).toFixed(2) : "—"}
+                            {booking.price ? formatCurrency(Number(booking.price)) : "—"}
                           </td>
                           <td className="px-4 py-3">
                             <span
@@ -850,15 +1045,15 @@ export default function StudentDashboard() {
                     onChange={(e) => setPaymentMethod(e.target.value)}
                     className="w-full mt-1 bg-black/30 border border-white/20 rounded-lg px-3 py-2"
                   >
-                    <option value="CASH">Cash</option>
+                    <option value="MOBILE_MONEY">Mobile Money</option>
                     <option value="CARD">Card</option>
-                    <option value="MOBILE_MONEY">Mobile money</option>
+                    <option value="BANK_TRANSIFER">Bank Transfer</option>
                   </select>
                 </div>
                 {paymentMethod === "MOBILE_MONEY" && (
                   <div>
                     <label className="text-xs uppercase tracking-wide text-white/60">
-                      Mobile money number
+                      Mobile Money Number <span className="text-red-400">*</span>
                     </label>
                     <input
                       type="tel"
@@ -866,7 +1061,51 @@ export default function StudentDashboard() {
                       onChange={(e) => setMobileMoneyNumber(e.target.value)}
                       className="w-full mt-1 bg-black/30 border border-white/20 rounded-lg px-3 py-2 text-white"
                       placeholder="e.g. 2507 123 456"
+                      required
                     />
+                  </div>
+                )}
+
+                {paymentMethod === "CARD" && (
+                  <div>
+                    <label className="text-xs uppercase tracking-wide text-white/60">
+                      Card Number <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={cardNumber}
+                      onChange={(e) => {
+                        // Only allow numbers and spaces, format as user types
+                        const value = e.target.value.replace(/\D/g, "").replace(/(.{4})/g, "$1 ").trim();
+                        setCardNumber(value);
+                      }}
+                      className="w-full mt-1 bg-black/30 border border-white/20 rounded-lg px-3 py-2 text-white"
+                      placeholder="1234 5678 9012 3456"
+                      maxLength={19}
+                      required
+                    />
+                    <p className="text-xs text-white/50 mt-1">
+                      Enter your card number (13-19 digits)
+                    </p>
+                  </div>
+                )}
+
+                {paymentMethod === "BANK_TRANSIFER" && (
+                  <div>
+                    <label className="text-xs uppercase tracking-wide text-white/60">
+                      Account Number <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={accountNumber}
+                      onChange={(e) => setAccountNumber(e.target.value)}
+                      className="w-full mt-1 bg-black/30 border border-white/20 rounded-lg px-3 py-2 text-white"
+                      placeholder="Enter your bank account number"
+                      required
+                    />
+                    <p className="text-xs text-white/50 mt-1">
+                      Enter your bank account number
+                    </p>
                   </div>
                 )}
                 <div>
@@ -876,14 +1115,18 @@ export default function StudentDashboard() {
                   <input
                     type="number"
                     min={mealPrices[selectedMeal].price}
-                    step="0.01"
+                    step={currency === "RWF" ? "1" : "0.01"}
                     value={paymentAmount}
                     onChange={(e) => setPaymentAmount(e.target.value)}
                     className="w-full mt-1 bg-black/30 border border-white/20 rounded-lg px-3 py-2 text-white"
-                    placeholder={`$${mealPrices[selectedMeal].price.toFixed(2)}`}
+                    placeholder={currency === "RWF" 
+                      ? `${Math.round(mealPrices[selectedMeal].price).toLocaleString()} RWF`
+                      : `$${mealPrices[selectedMeal].price.toFixed(2)}`}
                   />
                   <p className="text-xs text-white/50 mt-1">
-                    Meal price: ${mealPrices[selectedMeal].price.toFixed(2)}
+                    Meal price: {currency === "RWF" 
+                      ? `${Math.round(mealPrices[selectedMeal].price).toLocaleString()} RWF`
+                      : `$${mealPrices[selectedMeal].price.toFixed(2)}`}
                   </p>
                 </div>
                 {paymentError && (
@@ -905,100 +1148,183 @@ export default function StudentDashboard() {
 
         {showTopUpForm && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="bg-gray-900 text-white rounded-2xl w-full max-w-md border border-white/10 p-6 relative">
+            <div className="bg-gray-900 text-white rounded-xl w-full max-w-md border border-white/10 p-5 relative">
               <button
                 onClick={closeTopUpForm}
-                className="absolute top-3 right-3 text-white/60 hover:text-white"
+                className="absolute top-3 right-3 text-white/60 hover:text-white transition"
               >
                 ✕
               </button>
-              <h3 className="text-xl font-semibold mb-1">Top up balance</h3>
-              <p className="text-sm text-white/60 mb-4">
-                Add funds to your wallet before booking meals.
-              </p>
+              
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">Deposit Funds</h3>
+                <select
+                  value={currency}
+                  onChange={(e) => {
+                    const newCurrency = e.target.value as "RWF" | "USD";
+                    setCurrency(newCurrency);
+                    localStorage.setItem("currency", newCurrency);
+                  }}
+                  className="text-xs bg-black/30 border border-white/20 rounded px-2 py-1 text-white focus:outline-none"
+                >
+                  <option value="RWF">RWF</option>
+                  <option value="USD">USD</option>
+                </select>
+              </div>
+
               <form className="space-y-4" onSubmit={handleTopUpSubmit}>
+                {/* Quick Amount Buttons */}
                 <div>
-                  <label className="text-xs uppercase tracking-wide text-white/60">
-                    Amount to add
-                  </label>
+                  <label className="text-xs text-white/70 mb-2 block">Amount</label>
+                  <div className="grid grid-cols-4 gap-2 mb-2">
+                    {(currency === "RWF" 
+                      ? [5000, 10000, 20000, 50000] 
+                      : [5, 10, 20, 50]
+                    ).map((amount) => (
+                      <button
+                        key={amount}
+                        type="button"
+                        onClick={() => setTopUpAmount(amount.toString())}
+                        className={`py-1.5 px-2 rounded text-sm font-medium transition ${
+                          topUpAmount === amount.toString()
+                            ? "bg-cyan-500 text-white"
+                            : "bg-white/5 border border-white/10 hover:bg-white/10"
+                        }`}
+                      >
+                        {currency === "RWF" ? `${(amount / 1000).toFixed(0)}k` : `$${amount}`}
+                      </button>
+                    ))}
+                  </div>
                   <input
                     type="number"
-                    min="1"
-                    step="0.01"
+                    min={currency === "RWF" ? "1" : "0.01"}
+                    step={currency === "RWF" ? "1" : "0.01"}
                     value={topUpAmount}
                     onChange={(e) => setTopUpAmount(e.target.value)}
-                    className="w-full mt-1 bg-black/30 border border-white/20 rounded-lg px-3 py-2 text-white"
-                    placeholder="e.g. 25"
+                    className="w-full bg-black/30 border border-white/20 rounded-lg px-3 py-2 text-white focus:border-cyan-400 focus:outline-none"
+                    placeholder={`Enter amount in ${currency}`}
                   />
                 </div>
+
+                {/* Payment Method */}
                 <div>
-                  <label className="text-xs uppercase tracking-wide text-white/60">
-                    Payment method
-                  </label>
+                  <label className="text-xs text-white/70 mb-2 block">Payment Method</label>
                   <select
                     value={topUpMethod}
                     onChange={(e) => setTopUpMethod(e.target.value)}
-                    className="w-full mt-1 bg-black/30 border border-white/20 rounded-lg px-3 py-2"
+                    className="w-full bg-black/30 border border-white/20 rounded-lg px-3 py-2 text-white focus:border-cyan-400 focus:outline-none"
                   >
-                    <option value="MOBILE_MONEY">Mobile money</option>
-                    <option value="CASH">Cash</option>
+                    <option value="MOBILE_MONEY">Mobile Money</option>
                     <option value="CARD">Card</option>
-                    <option value="BANK_TRANSIFER">Bank transfer</option>
+                    <option value="BANK_TRANSIFER">Bank Transfer</option>
                   </select>
                 </div>
+
+                {/* Mobile Money Number */}
                 {topUpMethod === "MOBILE_MONEY" && (
                   <div>
-                    <label className="text-xs uppercase tracking-wide text-white/60">
-                      Mobile money number
+                    <label className="text-xs text-white/70 mb-2 block">
+                      Mobile Money Number <span className="text-red-400">*</span>
                     </label>
                     <input
                       type="tel"
                       value={topUpMobileNumber}
                       onChange={(e) => setTopUpMobileNumber(e.target.value)}
-                      className="w-full mt-1 bg-black/30 border border-white/20 rounded-lg px-3 py-2 text-white"
+                      className="w-full bg-black/30 border border-white/20 rounded-lg px-3 py-2 text-white focus:border-cyan-400 focus:outline-none"
                       placeholder="e.g. 2507 123 456"
+                      required
                     />
                   </div>
                 )}
-                <div>
-                  <label className="text-xs uppercase tracking-wide text-white/60">
-                    Provider reference (optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={topUpReference}
-                    onChange={(e) => setTopUpReference(e.target.value)}
-                    className="w-full mt-1 bg-black/30 border border-white/20 rounded-lg px-3 py-2 text-white"
-                    placeholder="Receipt or transaction code"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs uppercase tracking-wide text-white/60">
-                    Note (optional)
-                  </label>
-                  <textarea
-                    value={topUpNote}
-                    onChange={(e) => setTopUpNote(e.target.value)}
-                    className="w-full mt-1 bg-black/30 border border-white/20 rounded-lg px-3 py-2 text-white"
-                    rows={2}
-                    placeholder="Any helpful note"
-                  />
-                </div>
-                <p className="text-xs text-amber-200 bg-amber-500/10 border border-amber-500/30 rounded p-2">
-                  Funds will be deducted automatically every time you pay for a
-                  meal. Make sure the top-up amount covers your planned meals.
-                </p>
-                {topUpError && (
-                  <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/30 rounded p-2">
-                    {topUpError}
-                  </p>
+
+                {/* Card Number */}
+                {topUpMethod === "CARD" && (
+                  <div>
+                    <label className="text-xs text-white/70 mb-2 block">
+                      Card Number <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={topUpCardNumber}
+                      onChange={(e) => {
+                        // Only allow numbers and spaces, format as user types
+                        const value = e.target.value.replace(/\D/g, "").replace(/(.{4})/g, "$1 ").trim();
+                        setTopUpCardNumber(value);
+                      }}
+                      className="w-full bg-black/30 border border-white/20 rounded-lg px-3 py-2 text-white focus:border-cyan-400 focus:outline-none"
+                      placeholder="1234 5678 9012 3456"
+                      maxLength={19}
+                      required
+                    />
+                    <p className="text-xs text-white/50 mt-1">
+                      Enter your card number (13-19 digits)
+                    </p>
+                  </div>
                 )}
+
+                {/* Account Number */}
+                {topUpMethod === "BANK_TRANSIFER" && (
+                  <div>
+                    <label className="text-xs text-white/70 mb-2 block">
+                      Account Number <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={topUpAccountNumber}
+                      onChange={(e) => setTopUpAccountNumber(e.target.value)}
+                      className="w-full bg-black/30 border border-white/20 rounded-lg px-3 py-2 text-white focus:border-cyan-400 focus:outline-none"
+                      placeholder="Enter your bank account number"
+                      required
+                    />
+                    <p className="text-xs text-white/50 mt-1">
+                      Enter your bank account number
+                    </p>
+                  </div>
+                )}
+
+                {/* Provider Reference - Collapsed by default */}
+                <details className="text-xs">
+                  <summary className="text-white/60 cursor-pointer hover:text-white/80">
+                    Additional Details (Optional)
+                  </summary>
+                  <div className="mt-2 space-y-2">
+                    <input
+                      type="text"
+                      value={topUpReference}
+                      onChange={(e) => setTopUpReference(e.target.value)}
+                      className="w-full bg-black/30 border border-white/20 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-400 focus:outline-none"
+                      placeholder="Transaction reference"
+                    />
+                    <input
+                      type="text"
+                      value={topUpNote}
+                      onChange={(e) => setTopUpNote(e.target.value)}
+                      className="w-full bg-black/30 border border-white/20 rounded-lg px-3 py-2 text-white text-sm focus:border-cyan-400 focus:outline-none"
+                      placeholder="Note (optional)"
+                    />
+                  </div>
+                </details>
+
+                {/* Error Message */}
+                {topUpError && (
+                  <div className="p-2 bg-red-500/10 border border-red-500/30 rounded text-xs text-red-300">
+                    {topUpError}
+                  </div>
+                )}
+
+                {/* Submit Button */}
                 <button
                   type="submit"
-                  disabled={topUpLoading}
-                  className="w-full bg-amber-400 hover:bg-amber-300 text-black font-semibold rounded-lg py-3 transition disabled:opacity-70"
+                  disabled={topUpLoading || !topUpAmount || Number(topUpAmount) <= 0}
+                  className="w-full bg-linear-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-black font-semibold rounded-lg py-2.5 transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {topUpLoading ? "Processing..." : "Add balance"}
+                  {topUpLoading 
+                    ? "Processing..." 
+                    : `Deposit ${currency === "RWF" 
+                      ? `${topUpAmount && !isNaN(Number(topUpAmount)) ? Math.round(Number(topUpAmount)).toLocaleString() : "0"} RWF`
+                      : `$${topUpAmount && !isNaN(Number(topUpAmount)) ? Number(topUpAmount).toFixed(2) : "0.00"}`
+                    }`
+                  }
                 </button>
               </form>
             </div>

@@ -43,16 +43,34 @@ export default function StaffDashboard() {
 
   useEffect(() => {
     const storedToken = localStorage.getItem("token");
-    const storedRole = localStorage.getItem("role");
     const storedUser = localStorage.getItem("user");
 
-    if (!storedToken || storedRole?.toLowerCase() !== "staff") {
+    if (!storedToken) {
       router.replace("/login");
       return;
     }
 
+    if (!storedUser) {
+      router.replace("/login");
+      return;
+    }
+
+    const parsedUser = JSON.parse(storedUser);
+    const role = parsedUser.role?.toLowerCase();
+
+    // Role-based access control: Only staff can access staff dashboard
+    if (role !== "staff") {
+      // Redirect to appropriate dashboard based on role
+      if (role === "admin" || role === "superadmin") {
+        router.replace("/dashboard/admin");
+      } else {
+        router.replace("/dashboard/student");
+      }
+      return;
+    }
+
     setToken(storedToken);
-    setStaff(storedUser ? JSON.parse(storedUser) : null);
+    setStaff(parsedUser);
     fetchRecentScans(storedToken);
     setLoading(false);
   }, [router]);

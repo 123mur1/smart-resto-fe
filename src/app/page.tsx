@@ -43,7 +43,7 @@ export default function Page() {
           <div className="flex flex-col md:flex-row items-center gap-12">
             <div className="flex-1">
               <p className="text-sm uppercase tracking-[0.4em] text-cyan-300">
-                Smart Campus Restaurant
+                E-Campus Restaurant
               </p>
               <h1 className="text-4xl md:text-6xl font-bold mt-4 leading-tight">
                 Modern, data-driven meal management for{" "}
@@ -52,7 +52,7 @@ export default function Page() {
               <p className="mt-6 text-lg text-gray-300 max-w-2xl">
                 A unified platform that handles registration, verification,
                 digital meal passes, staff dashboards, analytics, and automated
-                reporting for your campus cafeteria.
+                reporting for your campus restaurant.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 mt-10">
@@ -125,7 +125,7 @@ export default function Page() {
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,#ffffff40,transparent_50%)] pointer-events-none" />
           <div className="relative">
             <p className="uppercase tracking-[0.4em] text-xs text-white/70">
-              Ready to digitize your cafeteria?
+              Ready to digitize your restaurant?
             </p>
             <h3 className="text-3xl md:text-4xl font-bold mt-4">
               Launch a seamless dining experience today.

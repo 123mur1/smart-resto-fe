@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
+    "dev:quiet": "NODE_OPTIONS='--no-warnings' next dev --turbopack",
+    "dev:webpack": "next dev",
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint"
