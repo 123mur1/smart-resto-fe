@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { API_ENDPOINTS } from "@/lib/api-config";
+import { API_ENDPOINTS, API_BASE_URL } from "@/lib/api-config";
 
 export default function SignIn() {
   const router = useRouter();
@@ -21,6 +21,8 @@ export default function SignIn() {
     setLoading(true);
 
     try {
+      console.log("🔗 Attempting login to:", API_ENDPOINTS.AUTH.LOGIN);
+      
       const res = await fetch(API_ENDPOINTS.AUTH.LOGIN, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -28,7 +30,12 @@ export default function SignIn() {
       });
 
       if (!res.ok) {
-        const errData = await res.json();
+        let errData;
+        try {
+          errData = await res.json();
+        } catch {
+          errData = { message: `Server error: ${res.status} ${res.statusText}` };
+        }
         throw new Error(errData.message || "Invalid email or password");
       }
 
@@ -54,7 +61,15 @@ export default function SignIn() {
       else router.push("/dashboard/student");
     } catch (err: any) {
       console.error("❌ Login error:", err);
-      setError(err.message);
+      
+      // Handle network errors (Failed to fetch)
+      if (err.message === "Failed to fetch" || err.name === "TypeError") {
+        setError(
+          `Cannot connect to server. Please ensure the backend is running on ${API_BASE_URL} and try again.`
+        );
+      } else {
+        setError(err.message || "An error occurred during login");
+      }
     } finally {
       setLoading(false);
     }
